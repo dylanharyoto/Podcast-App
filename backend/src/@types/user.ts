@@ -12,10 +12,10 @@ declare global {
         followers: number;
         followings: number;
       };
+      token: string;
     }
   }
 }
-
 
 export interface CreateUser extends Request {
   body: {
@@ -29,5 +29,5 @@ export interface VerifyEmailRequest extends Request {
   body: {
     userId: string;
     token: string;
-  }
+  };
 }

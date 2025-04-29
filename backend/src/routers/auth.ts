@@ -2,11 +2,14 @@ import {
   create,
   generateForgetPasswordLink,
   grantValid,
+  logOut,
+  sendProfile,
   sendReVerificationToken,
   signIn,
   updatePassword,
+  updateProfile,
   verifyEmail,
-} from "#/controllers/user";
+} from "#/controllers/auth";
 import { isValidPassResetToken, mustAuth } from "#/middleware/auth";
 import { validate } from "#/middleware/validator";
 import User from "#/models/user";
@@ -16,9 +19,8 @@ import {
   TokenAndIDValidation,
   UpdatePasswordSchema,
 } from "#/utils/validationSchema";
-import { JWT_SECRET } from "#/utils/variables";
 import { Router } from "express";
-import { JwtPayload, verify } from "jsonwebtoken";
+import fileParser, { RequestWithFiles } from "#/middleware/fileParser";
 
 const router = Router();
 
@@ -39,11 +41,7 @@ router.post(
   updatePassword
 );
 router.post("/sign-in", validate(SignInValidationSchema), signIn);
-router.get("/is-auth", mustAuth, (req, res) => {
-  res.json({
-    profile: req.user,
-  });
-});
+router.get("/is-auth", mustAuth, sendProfile);
 router.get("/public", mustAuth, (req, res) => {
   res.json({
     message: "You are in public route.",
@@ -54,13 +52,6 @@ router.get("/private", mustAuth, (req, res) => {
     message: "You are in private route.",
   });
 });
-import formidable from "formidable";
-router.post("/update-profile", (req, res) => {
-  const form = formidable();
-  form.parse(req, (err, fields, files) => {
-    console.log("fields: ", fields);
-    console.log("files: ", files);
-    res.json({uploaded: true})
-  })
-})
+router.post("/update-profile", mustAuth, fileParser, updateProfile);
+router.post("/log-out", mustAuth, logOut);
 export default router;

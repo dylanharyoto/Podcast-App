@@ -2,7 +2,7 @@ import { RequestHandler } from "express";
 import jwt from "jsonwebtoken";
 import { CreateUser, VerifyEmailRequest } from "#/@types/user";
 import User from "#/models/user";
-import { generateToken } from "#/utils/helper";
+import { formatProfile, generateToken } from "#/utils/helper";
 import {
   sendForgetPasswordLink,
   sendPassResetSuccessEmail,
@@ -13,6 +13,9 @@ import PasswordResetToken from "#/models/passwordResetToken";
 import { isValidObjectId } from "mongoose";
 import crypto from "crypto";
 import { JWT_SECRET, PASSWORD_RESET_LINK } from "#/utils/variables";
+import { error, profile } from "console";
+import cloudinary from "#/cloud";
+import formidable from "formidable";
 
 export const create: RequestHandler = async (req: CreateUser, res) => {
   const { name, email, password } = req.body;
@@ -145,6 +148,58 @@ export const signIn: RequestHandler = async (req, res) => {
       followers: user.followers.length,
       followings: user.followings.length,
     },
-    token
+    token,
   });
+};
+export const updateProfile: RequestHandler = async (req, res) => {
+  const { name } = req.body;
+  const avatar = req.files?.avatar as formidable.File;
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw new Error("something went wrong, user not found!");
+  }
+  if (typeof name !== "string") {
+    return res.status(422).json({ error: "Invalid name!" });
+  }
+  if (name.trim().length < 3) {
+    return res.status(422).json({ error: "Invalid name!" });
+  }
+  user.name = name;
+  if (avatar) {
+    if (user.avatar?.publicId) {
+      await cloudinary.uploader.destroy(user.avatar?.publicId);
+    }
+    const { secure_url, public_id } = await cloudinary.uploader.upload(
+      avatar.filepath,
+      {
+        width: 300,
+        height: 300,
+        crop: "thumb",
+        gravity: "face",
+      }
+    );
+    user.avatar = { url: secure_url, publicId: public_id };
+  }
+  await user.save();
+  res.json({ profile: formatProfile(user) });
+};
+
+export const sendProfile: RequestHandler = (req, res) => {
+  res.json({ profile: req.user });
+};
+
+export const logOut: RequestHandler = (req, res) => {
+  const { fromAll } = req.query;
+  const token = req.token;
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    throw new Error("Something went wrong, user not found!");
+  }
+  if (fromAll === "yes") {
+    user.tokens = [];
+  } else {
+    user.tokens = user.tokens.filter((t) => t !== token);
+  }
+  await user.save();
+  res.json({ success: true });
 };
